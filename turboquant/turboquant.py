@@ -1,3 +1,17 @@
+# Copyright 2026 Tom Turney
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """TurboQuant: Full algorithm combining PolarQuant + QJL.
 
 Algorithm 2 from the paper — Inner Product TurboQuant.
@@ -85,11 +99,16 @@ class TurboQuant:
             bit_width=self.bit_width,
         )
 
-    def dequantize(self, compressed: CompressedVector) -> np.ndarray:
+    def dequantize(self, compressed: CompressedVector, shrinkage: float = 1.0) -> np.ndarray:
         """Dequantize back to approximate vector.
 
         Args:
             compressed: CompressedVector from quantize().
+            shrinkage: Multiplicative factor applied to the QJL stage.
+                Default ``1.0`` is the classical unbiased estimator
+                (paper-faithful, backward-compatible). MMSE-optimal is
+                ``2/np.pi ≈ 0.6366`` — see ``QJL.dequantize`` for the
+                derivation.
 
         Returns:
             Reconstructed vector(s), same shape as original.
@@ -98,7 +117,9 @@ class TurboQuant:
         x_mse = self.polar_quant.dequantize(compressed.mse_indices, compressed.vector_norms)
 
         # Stage 2: QJL residual reconstruction
-        x_qjl = self.qjl.dequantize(compressed.qjl_signs, compressed.residual_norms)
+        x_qjl = self.qjl.dequantize(
+            compressed.qjl_signs, compressed.residual_norms, shrinkage=shrinkage
+        )
 
         return x_mse + x_qjl
 
